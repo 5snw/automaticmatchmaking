@@ -6,7 +6,7 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 import keyboard
 from PIL import Image, ImageTk
@@ -24,6 +24,7 @@ _enable_dpi_awareness()
 
 import config
 import i18n
+from ui_theme import COLORS, apply_theme
 from discord_sync import DiscordSync, SessionStats
 from anti_afk import AntiAfk
 from config import Settings
@@ -169,23 +170,34 @@ class App:
         self.root = tk.Tk()
         self.root.title(f"{TITLE} — BETA")
         r = self.root
-        k = r.winfo_fpixels("1i") / 96.0
-        r.geometry(f"{int(540 * k)}x{int(900 * k)}")
+        self.style = apply_theme(r)
+        self.ui_scale = k = r.winfo_fpixels("1i") / 96.0
+        width = min(int(1060 * k), r.winfo_screenwidth() - 70)
+        height = min(int(870 * k), r.winfo_screenheight() - 100)
+        r.geometry(f"{width}x{height}")
+        r.minsize(min(int(650 * k), width), min(int(570 * k), height))
 
-        ttk.Label(r, text=TITLE, font=("Segoe UI", 16, "bold"), wraplength=int(450 * k), justify="center").pack(pady=(8, 0))
-
-        ttk.Label(r, text="Discord: 5snw").pack(pady=(2, 0))
-        self._l(ttk.Label(r, wraplength=int(450 * k), justify="center"), "beta_notice").pack(padx=12, pady=(4, 6))
-        self._l(ttk.Button(r, command=lambda: webbrowser.open(config.DISCORD_SERVER_URL)), "discord_server").pack(pady=(0, 4))
+        header = ttk.Frame(r, style='Page.TFrame', padding=(26, 20, 26, 12))
+        header.pack(fill='x')
+        brand = ttk.Frame(header, style='Page.TFrame')
+        brand.pack(side='left')
+        ttk.Label(brand, text='SNOW EMPORIUM', style='Overline.TLabel').pack(anchor='w')
+        ttk.Label(brand, text='Matchmaking', style='Brand.TLabel').pack(anchor='w', pady=(2, 0))
+        meta = ttk.Frame(header, style='Page.TFrame')
+        meta.pack(side='right')
+        ttk.Label(meta, text='1.1  /  BETA', style='Badge.TLabel').pack(anchor='e')
+        ttk.Label(meta, text='Discord: 5snw', style='Page.TLabel').pack(anchor='e', pady=(8, 0))
 
         self.nb = ttk.Notebook(r)
-        self.nb.pack(fill="both", expand=True, padx=6, pady=6)
-        self.ctl = ttk.Frame(self.nb)
-        self.gd = ttk.Frame(self.nb)
-        self.nb.add(self.ctl, text="")
-        self.nb.add(self.gd, text="")
+        self.nb.pack(fill='both', expand=True, padx=22)
+        self.ctl = ttk.Frame(self.nb, style='Page.TFrame')
+        self.gd = ttk.Frame(self.nb, style='Page.TFrame')
+        self.nb.add(self.ctl, text='')
+        self.nb.add(self.gd, text='')
         self._build_control(self.ctl)
         self._build_guide(self.gd)
+        footer = self._l(ttk.Label(r, style='Page.TLabel', wraplength=int(900*k)), 'beta_notice')
+        footer.pack(anchor='w', padx=26, pady=(10, 14))
 
         self._apply_lang()
         self.discord.start()
@@ -197,78 +209,150 @@ class App:
         self._tr.append((widget, key))
         return widget
 
+    def _card(self, parent, title):
+        outer = ttk.Frame(parent, style='Card.TFrame', padding=16)
+        outer.pack(fill='x', pady=(0, 12))
+        self._l(ttk.Label(outer, style='Section.TLabel'), title).pack(anchor='w', pady=(0, 10))
+        body = ttk.Frame(outer)
+        body.pack(fill='both', expand=True)
+        return body
+
+    def _wrapped(self, parent, key, style='Muted.TLabel'):
+        label = self._l(ttk.Label(parent, style=style, wraplength=320), key)
+        label.pack(fill='x', anchor='w', pady=(0, 8))
+        label.bind('<Configure>', lambda event: label.configure(wraplength=max(100, event.width)))
+        return label
+
     def _build_control(self, r):
         self.info_var = tk.StringVar()
-        ttk.Label(r, textvariable=self.info_var).pack(pady=(6, 0))
+        summary = ttk.Frame(r, style='Card.TFrame', padding=16)
+        summary.pack(fill='x', pady=(0, 12))
+        summary.columnconfigure(0, weight=2)
+        summary.columnconfigure(1, weight=1)
+        summary.columnconfigure(2, weight=1)
+        self.state_var, self.score_var, self.loops_var = tk.StringVar(), tk.StringVar(), tk.StringVar()
+        for col, (key, var, style) in enumerate([
+            ('session_status', self.state_var, 'State.TLabel'),
+            ('session_similarity', self.score_var, 'Metric.TLabel'),
+            ('session_loops', self.loops_var, 'Metric.TLabel'),
+        ]):
+            cell = ttk.Frame(summary)
+            cell.grid(row=0, column=col, sticky='nsew', padx=(0, 16))
+            self._l(ttk.Label(cell, style='Muted.TLabel'), key).pack(anchor='w')
+            ttk.Label(cell, textvariable=var, style=style).pack(anchor='w', pady=(6, 0))
+        actions = ttk.Frame(summary)
+        actions.grid(row=0, column=3, sticky='e')
+        self.btn = ttk.Button(actions, command=self.toggle, style='Primary.TButton', width=12)
+        self.btn.pack()
+        self._l(ttk.Label(actions, style='Muted.TLabel'), 'stop_hint').pack(pady=(5, 0))
 
-        row = ttk.Frame(r)
-        row.pack(pady=6)
-        self.btn = ttk.Button(row, command=self.toggle)
-        self.btn.pack(side="left", padx=4)
-        self.top_var = tk.BooleanVar(value=False)
-        self._l(ttk.Checkbutton(row, variable=self.top_var, command=lambda: self.root.attributes("-topmost", self.top_var.get())), "topmost").pack(side="left")
+        scroll = ttk.Frame(r, style='Page.TFrame')
+        scroll.pack(fill='both', expand=True)
+        self.control_canvas = canvas = tk.Canvas(scroll, background=COLORS['page'], highlightthickness=0, borderwidth=0)
+        bar = ttk.Scrollbar(scroll, orient='vertical', command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        bar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+        body = ttk.Frame(canvas, style='Page.TFrame')
+        self._control_body = body
+        window = canvas.create_window(0, 0, window=body, anchor='nw')
+        left, right = ttk.Frame(body, style='Page.TFrame'), ttk.Frame(body, style='Page.TFrame')
+        left.grid(row=0, column=0, sticky='nsew', padx=(0, 12))
+        right.grid(row=0, column=1, sticky='nsew')
+        body.columnconfigure(0, weight=1, uniform='columns')
+        body.columnconfigure(1, weight=1, uniform='columns')
+        def resize(event):
+            canvas.itemconfigure(window, width=event.width)
+            narrow = event.width < int(820*self.ui_scale)
+            left.grid_configure(padx=0 if narrow else (0, 12))
+            right.grid(row=1 if narrow else 0, column=0 if narrow else 1, sticky='nsew')
+            body.columnconfigure(1, weight=0 if narrow else 1, uniform='' if narrow else 'columns')
+        canvas.bind('<Configure>', resize)
+        body.bind('<Configure>', lambda _: canvas.configure(scrollregion=canvas.bbox('all')))
+        def wheel(event):
+            widget = event.widget
+            while widget is not None:
+                if widget is canvas or widget is body:
+                    if canvas.bbox('all') and body.winfo_height() > canvas.winfo_height():
+                        canvas.yview_scroll(-int(event.delta / 120), 'units')
+                    return 'break'
+                widget = getattr(widget, 'master', None)
+        self.root.bind('<MouseWheel>', wheel, add='+')
 
-        lang_row = ttk.Frame(r)
-        lang_row.pack(pady=(0, 4))
-        self._l(ttk.Label(lang_row), "lang_label").pack(side="left", padx=4)
+        mode = self._card(left, 'section_mode')
+        self._wrapped(mode, 'beta_notice')
+        row = ttk.Frame(mode)
+        row.pack(fill='x', pady=(0, 8))
+        self._l(ttk.Label(row, style='Muted.TLabel'), 'lang_label').pack(side='left')
         self.lang_var = tk.StringVar(value=config.LANGS[self.s.lang])
-        lang_box = ttk.Combobox(lang_row, textvariable=self.lang_var, values=list(config.LANGS.values()), width=16, state="readonly")
-        lang_box.pack(side="left")
-        lang_box.bind("<<ComboboxSelected>>", self._on_lang)
-
+        lang_box = ttk.Combobox(row, textvariable=self.lang_var, values=list(config.LANGS.values()), width=12, state='readonly')
+        lang_box.pack(side='right')
+        lang_box.bind('<<ComboboxSelected>>', self._on_lang)
         self.mode_var = tk.StringVar(value=self.s.mode)
         for code in config.MODES:
-            self._l(ttk.Radiobutton(r, value=code, variable=self.mode_var, command=self._on_mode), f"mode_{code}").pack(anchor="w", padx=16)
-        wait_row = ttk.Frame(r)
-        wait_row.pack(pady=2)
-        self.wait_b_var = tk.StringVar(value=f"{self.s.wait_b}")
-        self._l(ttk.Label(wait_row), "b_pre").pack(side="left")
-        ttk.Spinbox(wait_row, from_=10, to=600, increment=5, width=5, textvariable=self.wait_b_var).pack(side="left", padx=2)
-        self._l(ttk.Label(wait_row), "b_post").pack(side="left")
-        self.wait_b_var.trace_add("write", lambda *_: self._on_afk_num("wait_b", self.wait_b_var, 10.0, 600.0))
+            self._l(ttk.Radiobutton(mode, value=code, variable=self.mode_var, command=self._on_mode), f'mode_{code}').pack(anchor='w')
+        wait_row = ttk.Frame(mode)
+        wait_row.pack(fill='x', pady=(8, 4))
+        self.wait_b_var = tk.StringVar(value=f'{self.s.wait_b}')
+        self._l(ttk.Label(wait_row, style='Muted.TLabel'), 'b_pre').pack(side='left')
+        ttk.Spinbox(wait_row, from_=10, to=600, increment=5, width=5, textvariable=self.wait_b_var).pack(side='left', padx=6)
+        self._l(ttk.Label(wait_row, style='Muted.TLabel'), 'b_post').pack(side='left')
+        self.wait_b_var.trace_add('write', lambda *_: self._on_afk_num('wait_b', self.wait_b_var, 10.0, 600.0))
 
+        movement = self._card(left, 'section_movement')
         self.afk_var = tk.BooleanVar(value=self.s.afk_enabled)
-        self._l(
-            ttk.Checkbutton(r, variable=self.afk_var, command=lambda: setattr(self.s, "afk_enabled", self.afk_var.get())),
-            "afk_check",
-        ).pack()
+        self._l(ttk.Checkbutton(movement, variable=self.afk_var, command=lambda: setattr(self.s, 'afk_enabled', self.afk_var.get())), 'afk_check').pack(anchor='w')
+        afk_row = ttk.Frame(movement)
+        afk_row.pack(fill='x', pady=(6, 10))
+        self.afk_int_var = tk.StringVar(value=f'{self.s.afk_interval}')
+        self.afk_hold_var = tk.StringVar(value=f'{self.s.afk_hold}')
+        self._l(ttk.Label(afk_row, style='Muted.TLabel'), 'afk_pre').pack(side='left')
+        ttk.Spinbox(afk_row, from_=1, to=600, width=5, textvariable=self.afk_int_var).pack(side='left', padx=5)
+        self._l(ttk.Label(afk_row, style='Muted.TLabel'), 'afk_mid').pack(side='left')
+        ttk.Spinbox(afk_row, from_=0.5, to=30, increment=0.5, width=5, textvariable=self.afk_hold_var).pack(side='left', padx=5)
+        self._l(ttk.Label(afk_row, style='Muted.TLabel'), 'afk_post').pack(side='left')
+        self.afk_int_var.trace_add('write', lambda *_: self._on_afk_num('afk_interval', self.afk_int_var, 1.0, 600.0))
+        self.afk_hold_var.trace_add('write', lambda *_: self._on_afk_num('afk_hold', self.afk_hold_var, 0.5, 30.0))
+        self.top_var = tk.BooleanVar(value=False)
+        self._l(ttk.Checkbutton(movement, variable=self.top_var, command=lambda: self.root.attributes('-topmost', self.top_var.get())), 'topmost').pack(anchor='w')
 
-        afk_row = ttk.Frame(r)
-        afk_row.pack(pady=2)
-        self.afk_int_var = tk.StringVar(value=f"{self.s.afk_interval}")
-        self.afk_hold_var = tk.StringVar(value=f"{self.s.afk_hold}")
-        self._l(ttk.Label(afk_row), "afk_pre").pack(side="left")
-        ttk.Spinbox(afk_row, from_=1, to=600, increment=1, width=5, textvariable=self.afk_int_var).pack(side="left", padx=2)
-        self._l(ttk.Label(afk_row), "afk_mid").pack(side="left")
-        ttk.Spinbox(afk_row, from_=0.5, to=30, increment=0.5, width=5, textvariable=self.afk_hold_var).pack(side="left", padx=2)
-        self._l(ttk.Label(afk_row), "afk_post").pack(side="left")
-        self.afk_int_var.trace_add("write", lambda *_: self._on_afk_num("afk_interval", self.afk_int_var, 1.0, 600.0))
-        self.afk_hold_var.trace_add("write", lambda *_: self._on_afk_num("afk_hold", self.afk_hold_var, 0.5, 30.0))
-
+        recognition = self._card(left, 'section_recognition')
+        self._wrapped(recognition, 'recognition_hint')
+        th_row = ttk.Frame(recognition)
+        th_row.pack(fill='x')
+        self._l(ttk.Label(th_row, style='Muted.TLabel'), 'threshold').pack(side='left')
         self.th_var = tk.DoubleVar(value=self.s.threshold)
-        self._l(ttk.Label(r), "threshold").pack()
-        ttk.Scale(r, from_=0.5, to=0.95, variable=self.th_var, command=self._on_th).pack(fill="x", padx=12)
-        self.th_lbl = ttk.Label(r, text=f"{self.s.threshold:.2f}")
-        self.th_lbl.pack()
+        self.th_lbl = ttk.Label(th_row, text=f'{self.s.threshold:.2f}', style='Section.TLabel')
+        self.th_lbl.pack(side='right')
+        ttk.Scale(recognition, from_=0.5, to=0.95, variable=self.th_var, command=self._on_th).pack(fill='x', pady=(8, 12))
+        cap = ttk.Frame(recognition)
+        cap.pack(fill='x')
+        self.cap_key = tk.StringVar(value='play')
+        ttk.Combobox(cap, textvariable=self.cap_key, values=list(config.TEMPLATE_NAMES), width=12, state='readonly').pack(side='left', fill='x', expand=True, padx=(0, 6))
+        self._l(ttk.Button(cap, command=self.capture_template), 'crop').pack(side='left')
+        ttk.Button(cap, text='?', width=2, command=self._show_crop_help).pack(side='left', padx=(4, 0))
 
-        cap = ttk.Frame(r)
-        cap.pack(pady=4)
-        self.cap_key = tk.StringVar(value="play")
-        ttk.Combobox(cap, textvariable=self.cap_key, values=list(config.TEMPLATE_NAMES), width=14, state="readonly").pack(side="left", padx=4)
-        self._l(ttk.Button(cap, command=self.capture_template), "crop").pack(side="left")
+        self._build_discord(right)
+        activity = self._card(right, 'section_activity')
+        self._wrapped(activity, 'activity_hint')
+        self.log = tk.Text(activity, height=7, width=1, state='disabled', font=('Consolas', 9), background=COLORS['input'], foreground=COLORS['muted'], selectbackground=COLORS['line'], relief='flat', padx=10, pady=10, wrap='word', borderwidth=0)
+        log_scroll = ttk.Scrollbar(activity, orient='vertical', command=self.log.yview)
+        self.log.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side='right', fill='y')
+        self.log.pack(fill='both', expand=True)
 
-        self._build_discord(r)
-        self.log = tk.Text(r, height=5, state="disabled", font=("Consolas", 9))
-        self.log.pack(fill="both", expand=True, padx=8, pady=6)
+    def _show_crop_help(self):
+        messagebox.showinfo(i18n.t(self.s.lang, 'crop'), i18n.t(self.s.lang, 'crop_help'), parent=self.root)
 
     def _build_discord(self, r):
-        box = self._l(ttk.LabelFrame(r), 'dm_title')
-        box.pack(fill='x', padx=8, pady=4)
+        box = self._card(r, 'dm_title')
+        self._wrapped(box, 'discord_setup')
+        self._l(ttk.Button(box, command=lambda: webbrowser.open(config.DISCORD_SERVER_URL)), 'discord_server').pack(fill='x', pady=(0, 12))
         default_url = config.DISCORD_API_URL
         try:
             import json
             with open(os.path.join(config.base_dir(), 'service.json'), encoding='utf-8') as f:
-                default_url = json.load(f).get('url', '')
+                default_url = json.load(f).get('url', default_url)
         except (OSError, ValueError, AttributeError):
             pass
         self.service_var = tk.StringVar(value=default_url)
@@ -276,22 +360,30 @@ class App:
         self.dm_var = tk.BooleanVar(value=False)
         self.remote_var = tk.BooleanVar(value=False)
         self.dm_every_var = tk.StringVar(value='0')
-        for key, var, secret in [('service_url', self.service_var, False), ('link_key', self.key_var, True)]:
-            row = ttk.Frame(box)
-            row.pack(fill='x', padx=6, pady=2)
-            self._l(ttk.Label(row), key).pack(side='left')
-            ttk.Entry(row, textvariable=var, show='*' if secret else '', width=36).pack(side='right', fill='x', expand=True, padx=(6, 0))
-        self._l(ttk.Checkbutton(box, variable=self.dm_var, command=self._configure_discord), 'dm_send').pack(anchor='w', padx=6)
-        self._l(ttk.Checkbutton(box, variable=self.remote_var, command=self._configure_discord), 'dm_remote').pack(anchor='w', padx=6)
+        self._l(ttk.Label(box, style='Muted.TLabel'), 'link_key').pack(anchor='w', pady=(0, 5))
+        self.key_entry = ttk.Entry(box, textvariable=self.key_var, show='*')
+        self.key_entry.pack(fill='x', pady=(0, 10))
+        self._l(ttk.Checkbutton(box, variable=self.dm_var, command=self._configure_discord), 'dm_send').pack(anchor='w')
+        self._l(ttk.Checkbutton(box, variable=self.remote_var, command=self._configure_discord), 'dm_remote').pack(anchor='w')
         row = ttk.Frame(box)
-        row.pack(fill='x', padx=6, pady=2)
-        self._l(ttk.Label(row), 'dm_every').pack(side='left')
-        ttk.Spinbox(row, from_=0, to=1440, width=5, textvariable=self.dm_every_var).pack(side='left', padx=4)
-        self._l(ttk.Label(row), 'dm_minutes').pack(side='left')
-        self._l(ttk.Label(box, wraplength=490), 'dm_privacy').pack(anchor='w', padx=6, pady=2)
+        row.pack(fill='x', pady=(8, 10))
+        self._l(ttk.Label(row, style='Muted.TLabel'), 'dm_every').pack(side='left')
+        ttk.Spinbox(row, from_=0, to=1440, width=5, textvariable=self.dm_every_var).pack(side='left', padx=6)
+        self._l(ttk.Label(row, style='Muted.TLabel'), 'dm_minutes').pack(side='left')
+        self._wrapped(box, 'dm_privacy')
+        self._l(ttk.Button(box, command=self._toggle_service_options), 'service_options').pack(anchor='w', pady=(4, 0))
+        self.service_options = ttk.Frame(box)
+        self._l(ttk.Label(self.service_options, style='Muted.TLabel'), 'service_url').pack(anchor='w', pady=(10, 5))
+        ttk.Entry(self.service_options, textvariable=self.service_var).pack(fill='x')
         for var in (self.service_var, self.key_var, self.dm_every_var):
             var.trace_add('write', lambda *_: self._configure_discord())
         self._configure_discord()
+
+    def _toggle_service_options(self):
+        if self.service_options.winfo_manager():
+            self.service_options.pack_forget()
+        else:
+            self.service_options.pack(fill='x', pady=(0, 5))
 
     def _configure_discord(self):
         try:
@@ -320,7 +412,7 @@ class App:
 
     def _build_guide(self, r):
         sb = ttk.Scrollbar(r, orient="vertical")
-        self.guide_txt = tk.Text(r, wrap="word", state="disabled", font=("Segoe UI", 10), padx=10, pady=6, relief="flat", yscrollcommand=sb.set)
+        self.guide_txt = tk.Text(r, wrap="word", state="disabled", font=("Segoe UI", 11), padx=28, pady=20, relief="flat", background=COLORS["card"], foreground=COLORS["text"], selectbackground=COLORS["line"], borderwidth=0, yscrollcommand=sb.set)
         sb.config(command=self.guide_txt.yview)
         sb.pack(side="right", fill="y")
         self.guide_txt.pack(side="left", fill="both", expand=True)
@@ -333,9 +425,9 @@ class App:
         g = self.guide_txt
         family = "Segoe UI"
 
-        g.config(state="normal", font=(family, 10), wrap="word")
-        g.tag_configure("h1", font=(family, 12, "bold"), spacing1=12, spacing3=4)
-        g.tag_configure("h2", font=(family, 10, "bold"), spacing1=8, spacing3=2)
+        g.config(state="normal", font=(family, 11), wrap="word")
+        g.tag_configure("h1", font=(family, 16, "bold"), foreground=COLORS["accent"], spacing1=22, spacing3=10)
+        g.tag_configure("h2", font=(family, 12, "bold"), foreground=COLORS["text"], spacing1=16, spacing3=6)
         g.delete("1.0", "end")
         for kind, text in i18n.guide(self.s.lang):
             g.insert("end", ("•  " if kind == "li" else "") + text + "\n", kind)
@@ -356,7 +448,7 @@ class App:
         return bool(self.worker and self.worker.is_alive() and not self.worker.stop_event.is_set())
 
     def _refresh_btn(self):
-        self.btn.config(text=i18n.t(self.s.lang, "stop" if self._running() else "start"))
+        self.btn.config(text=i18n.t(self.s.lang, "stop" if self._running() else "start"), style="Stop.TButton" if self._running() else "Primary.TButton")
 
     def _on_th(self, _v):
         self.s.threshold = round(self.th_var.get(), 2)
@@ -383,6 +475,9 @@ class App:
 
     def _show(self, state, score, loops):
         self.info_var.set(i18n.t(self.s.lang, "info", state=state, score=score, loops=loops))
+        self.state_var.set(i18n.t(self.s.lang, 'state_' + state))
+        self.score_var.set(f'{score:.2f}')
+        self.loops_var.set(f'{loops:02d}')
 
     def toggle(self):
         if self._running():

@@ -34,7 +34,7 @@ def test_guide_has_the_same_structure_in_every_language():
         assert all(text.strip() for _, text in i18n.GUIDE[lang]), lang
     assert {k for k in ref} == {"h1", "h2", "p", "n", "li"}
 
-def test_guide_starts_with_troubleshooting_and_ends_with_contact():
+def test_guide_starts_with_setup_and_ends_with_contact():
     for lang in i18n.LANG_CODES:
         g = i18n.GUIDE[lang]
         assert g[0][0] == "h1" and [k for k, _ in g[1:6]] == ["n"] * 5, lang
