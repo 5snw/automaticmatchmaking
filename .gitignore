@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+dist_protected/
+build_obf/
+*.spec
+*.pfx
+*.p12
+node_modules/
+.wrangler/
+.dev.vars
+.env
+service.json
+
+# Private Discord service and local distribution bundles
+service/
+*.zip
+*.exe
+*.log
+.pytest_cache/
