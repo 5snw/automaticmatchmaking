@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import time
 
 from vision import Plate, find_plate, find_template
 
@@ -38,6 +39,7 @@ class StateMachine:
         self.ctrl = controller
         self.state = State.IDLE
         self.loops = 0
+        self._last_play = -float('inf')
 
     def start(self):
         if self.state is State.IDLE:
@@ -74,6 +76,8 @@ class StateMachine:
 
         own_score = 0.0
         for key, nxt, finishes_loop in cands:
+            if key == 'play' and time.monotonic() - self._last_play < self.s.play_retry_interval:
+                continue
             tpl = self.templates.get(key)
             if tpl is None:
                 continue
@@ -84,10 +88,15 @@ class StateMachine:
             if key == own_key:
                 own_score = score
             if m and self.ctrl.click(m[0] + ox, m[1] + oy):
+                if key == 'play':
+                    self._last_play = time.monotonic()
+                elif key in ('continue', 'skip', 'return_lobby'):
+                    self._last_play = -float('inf')
                 if nxt is None:
                     return StepResult(self.state, score, True, f"clicked {key} (stay)")
                 if finishes_loop:
                     self.loops += 1
+                    self._last_play = -float('inf')
                 self.state = nxt
                 return StepResult(self.state, score, True, f"clicked {key}")
         if self.templates.get(own_key) is None:

@@ -464,8 +464,8 @@ UI['en'].update({
     'dm_invalid_service': 'Invalid service URL. Use the HTTPS service address, not the Discord invite.',
 })
 
-GUIDE['pt'][6:6] = [('p', 'Antes de iniciar, desconecte qualquer controle conectado ao PC, por USB ou Bluetooth.')]
-GUIDE['en'][6:6] = [('p', 'Before starting, disconnect any controller connected to your PC, via USB or Bluetooth.')]
+GUIDE['pt'][6:6] = [('p', 'Recomendamos abrir o aplicativo como administrador: clique com o botão direito no executável e escolha Executar como administrador.'), ('p', 'Antes de iniciar, desconecte qualquer controle conectado ao PC, por USB ou Bluetooth.')]
+GUIDE['en'][6:6] = [('p', 'We recommend running the app as administrator: right-click the executable and choose Run as administrator.'), ('p', 'Before starting, disconnect any controller connected to your PC, via USB or Bluetooth.')]
 GUIDE['pt'][-2:-2] = [
     ('h2', 'Como o bot sabe para quem enviar'),
     ('p', 'Ao usar /link, o Discord informa ao ss :) o ID da sua conta. O serviço associa esse ID à chave gerada. Cole essa chave no app: não é preciso informar seu nome ou ID manualmente. Cada nova chave revoga a anterior.'),

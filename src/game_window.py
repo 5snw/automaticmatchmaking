@@ -80,10 +80,12 @@ class NativeWindow(WinApi):
             self.u.SetLayeredWindowAttributes(h, *layered)
 
     def ghost(self, h, appearance, interactive=False):
-        style = appearance[0] | 0x80000
-        style = style & ~0x20 if interactive else style | 0x20
-        self.u.SetWindowLongW(h, -20, style)
-        if not self.u.SetLayeredWindowAttributes(h, 0, 1, 2):
+        # Keep window styles stable throughout the session. Alpha zero makes
+        # the idle window click-through; alpha one accepts our brief click.
+        style = (appearance[0] | 0x80000) & ~0x20
+        if self.u.GetWindowLongW(h, -20) != style:
+            self.u.SetWindowLongW(h, -20, style)
+        if not self.u.SetLayeredWindowAttributes(h, 0, 1 if interactive else 0, 2):
             raise WindowUnavailable('Ghost unavailable / Ghost indisponível')
 
     def cursor(self):
@@ -187,7 +189,18 @@ class GameSession:
             self._appearance()
             self.last_geometry = self.api.geometry(self.h)
             if not self.s.background_enabled:
-                value = screen_capture(self.s.monitor_index)
+                if self.api.foreground() != self.h:
+                    self.api.focus(self.h)
+                    if self.stop.wait(0.35):
+                        raise WindowUnavailable('capture_cancelled')
+                if self.api.foreground() != self.h:
+                    raise CaptureRetry('capture_focus')
+                x, y, width, height = self.api.geometry(self.h)
+                self.last_geometry = (x, y, width, height)
+                value = screen_capture(self.s.monitor_index, region={
+                    'left': x, 'top': y, 'width': width, 'height': height})
+                if self.api.foreground() != self.h or self.api.geometry(self.h) != self.last_geometry:
+                    raise CaptureRetry('capture_moved')
                 self.capture_ready = True
                 return value
             if self.capture_job is not None and self.discard_pending and not self.capture_job.empty():
@@ -243,11 +256,17 @@ class GameSession:
                     self.api.ghost(h, self.original, interactive=True)
                 if previous != h:
                     self.api.focus(h)
-                    if self.stop.wait(0.15):
+                    if self.stop.wait(0.35):
                         return False
                 if self.api.foreground() != h:
                     return False
+                if point is not None and self.api.geometry(h) != geometry:
+                    self.capture_ready = False
+                    return False
                 action()
+                if point is not None:
+                    # Let the game consume mouse-up before restoring another app.
+                    self.stop.wait(0.3)
                 return True
             finally:
                 try:

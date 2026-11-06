@@ -105,6 +105,8 @@ def test_reclicks_previous_button_if_still_visible(env):
     sm.step(make_frame(tpls["play"]))
     assert len(clicks) == 1
     clock.advance(2)
+    assert not sm.step(make_frame(tpls["play"])).clicked
+    clock.advance(11)
     r = sm.step(make_frame(tpls["play"]))
     assert r.clicked and sm.state is State.IN_MATCH and len(clicks) == 2
     assert sm.loops == 0

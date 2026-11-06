@@ -94,6 +94,7 @@ class Settings:
     delay_min: float = 0.15
     delay_max: float = 0.45
     click_cooldown: float = 3.0
+    play_retry_interval: float = 12.0
     monitor_index: int = 1
 
     afk_enabled: bool = True

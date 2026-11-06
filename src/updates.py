@@ -7,8 +7,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = '1.2'
-BUILD = '1.2'
+VERSION = '1.2.1'
+BUILD = '1.2.1'
 REPOSITORY = '5snw/automaticmatchmaking'
 RELEASES_URL = f'https://github.com/{REPOSITORY}/releases'
 

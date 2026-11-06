@@ -57,6 +57,17 @@ def env(monkeypatch, fake_time):
 def frame_of(tpls, key, pos=(300, 200)):
     return make_frame((tpls[key], pos))
 
+
+def test_play_retry_waits_for_matchmaking_instead_of_repeated_clicks(env):
+    _, clock, clicks, _, tpls, mb = env
+    assert mb.step(frame_of(tpls, 'play')).clicked
+    clock.advance(2)
+    assert not mb.step(frame_of(tpls, 'play')).clicked
+    assert len(clicks) == 1
+    clock.advance(11)
+    assert mb.step(frame_of(tpls, 'play')).clicked
+    assert len(clicks) == 2
+
 def test_idle_until_started(env):
     s, clock, clicks, keys, tpls, mb = env
     mb.stop()

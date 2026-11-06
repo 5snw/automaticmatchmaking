@@ -35,7 +35,7 @@ def test_diagnostic_excludes_unknown_status_data():
     data = collect(Settings(), {'state': 'IDLE', 'key': 'TOPSECRET', 'log': 'PRIVATEPATH'})
     encoded = json.dumps(data)
     assert 'TOPSECRET' not in encoded and 'PRIVATEPATH' not in encoded
-    assert data['app_version'] == '1.2'
+    assert data['app_version'] == '1.2.1'
 
 
 def test_space_stops_mid_burst_and_releases(monkeypatch):

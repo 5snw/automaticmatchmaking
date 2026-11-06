@@ -23,7 +23,7 @@ class Controller:
         time.sleep(random.uniform(0.10, 0.20))
         pydirectinput.mouseDown(button="left")
         try:
-            time.sleep(random.uniform(0.06, 0.12))
+            time.sleep(0.55)
         finally:
             pydirectinput.mouseUp(button="left")
 

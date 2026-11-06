@@ -80,7 +80,7 @@ def test_peek_and_disabling_background_restore_window():
     assert api.hidden
     assert api.fg == 9
     session.s.background_enabled = False
-    assert session.capture(lambda _: ('screen', 0, 0)) == ('screen', 0, 0)
+    assert session.capture(lambda _, **kw: ('screen', 0, 0)) == ('screen', 0, 0)
     assert not api.hidden
 
 
@@ -106,6 +106,50 @@ def test_temporary_capture_failure_blocks_input_until_recovered():
     assert session.perform(lambda: called.append(True))
     assert called == [True]
     session.close()
+
+
+def test_normal_mode_focuses_game_then_captures_its_client_area():
+    session, api = setup()
+    session.s.background_enabled = False
+    seen = []
+    def screen(monitor, region):
+        assert api.fg == 1
+        seen.append(region)
+        return 'screen', region['left'], region['top']
+    assert session.capture(screen) == ('screen', 10, 20)
+    assert seen == [{'left':10, 'top':20, 'width':800, 'height':600}]
+    assert session.capture_ready
+
+
+def test_normal_mode_never_analyzes_desktop_when_focus_fails():
+    session, api = setup()
+    session.s.background_enabled = False
+    api.focus_works = False
+    with pytest.raises(CaptureRetry):
+        session.capture(lambda *a, **k: pytest.fail('must not capture another app'))
+    assert not session.capture_ready
+
+
+def test_ghost_does_not_toggle_extended_styles_for_each_click():
+    from game_window import NativeWindow
+    class User32:
+        style = 0
+        styles = []
+        alphas = []
+        def GetWindowLongW(self, h, index): return self.style
+        def SetWindowLongW(self, h, index, value):
+            self.style = value
+            self.styles.append(value)
+        def SetLayeredWindowAttributes(self, h, color, alpha, flags):
+            self.alphas.append(alpha)
+            return 1
+    api = NativeWindow.__new__(NativeWindow)
+    api.u = User32()
+    api.ghost(1, (0, None))
+    api.ghost(1, (0, None), interactive=True)
+    api.ghost(1, (0, None))
+    assert len(api.u.styles) == 1
+    assert api.u.alphas == [0, 1, 0]
 
 
 def test_timeout_never_starts_parallel_capture_and_discards_late_frame():

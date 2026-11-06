@@ -18,6 +18,7 @@ class ModeB:
         self._t0 = 0.0
         self._t_esc = 0.0
         self._esc_tries = 0
+        self._last_play = -float('inf')
 
     def start(self):
         if self.state is State.IDLE:
@@ -62,7 +63,8 @@ class ModeB:
 
     def _lobby(self, frame, now, ox, oy):
         m, play_score = self._find("play", frame)
-        if self._click(m, ox, oy):
+        if now - self._last_play >= self.s.play_retry_interval and self._click(m, ox, oy):
+            self._last_play = now
             self.state = State.B_WAIT_MATCH
             return StepResult(self.state, play_score, True, "clicked play")
         for key in POPUP_KEYS:
@@ -84,7 +86,8 @@ class ModeB:
         if m:
             return self._enter_countdown(now, hud_score, "island detected")
         m, score = self._find("play", frame)
-        if self._click(m, ox, oy):
+        if now - self._last_play >= self.s.play_retry_interval and self._click(m, ox, oy):
+            self._last_play = now
             return StepResult(self.state, score, True, "clicked play (retry)")
         return StepResult(self.state, hud_score, False, "waiting island")
 
