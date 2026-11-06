@@ -7,13 +7,13 @@ if not exist .venv (
 )
 .venv\Scripts\pip install -q pyarmor || exit /b 1
 if exist build_obf rmdir /s /q build_obf
-.venv\Scripts\pyarmor gen -O build_obf\src src\main.py src\config.py src\vision.py src\controller.py src\state_machine.py src\anti_afk.py src\mode_b.py src\focus.py src\i18n.py src\discord_sync.py src\ui_theme.py || exit /b 1
+.venv\Scripts\pyarmor gen -O build_obf\src src\main.py src\config.py src\vision.py src\controller.py src\state_machine.py src\anti_afk.py src\mode_b.py src\focus.py src\i18n.py src\discord_sync.py src\ui_theme.py src\updates.py src\diagnostics.py src\game_window.py src\link_store.py || exit /b 1
 .venv\Scripts\pyinstaller --noconsole --onefile --name snow-emporium-matchmaking ^
   --paths build_obf\src ^
   --hidden-import pyarmor_runtime_000000 ^
   --hidden-import config --hidden-import anti_afk --hidden-import controller ^
   --hidden-import state_machine --hidden-import vision --hidden-import mode_b --hidden-import math ^
-  --hidden-import focus --hidden-import i18n --hidden-import discord_sync --hidden-import ui_theme --hidden-import webbrowser ^
+  --hidden-import focus --hidden-import i18n --hidden-import discord_sync --hidden-import ui_theme --hidden-import updates --hidden-import diagnostics --hidden-import game_window --hidden-import link_store --hidden-import webbrowser ^
   --hidden-import cv2 --hidden-import numpy ^
   --hidden-import tkinter --hidden-import tkinter.ttk ^
   --hidden-import queue --hidden-import threading --hidden-import dataclasses ^

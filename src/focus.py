@@ -9,6 +9,13 @@ class WinApi:
     def __init__(self):
         self.u = ctypes.windll.user32
         self.k = ctypes.windll.kernel32
+        self.u.GetForegroundWindow.restype = wintypes.HWND
+        self.u.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+        self.u.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+        self.u.IsWindowVisible.argtypes = [wintypes.HWND]
+        self.u.IsIconic.argtypes = [wintypes.HWND]
+        self.u.SetForegroundWindow.argtypes = [wintypes.HWND]
+        self.u.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 
     def windows(self):
         found = []

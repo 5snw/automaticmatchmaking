@@ -7,8 +7,9 @@ from focus import ensure_game_foreground
 
 
 class Controller:
-    def __init__(self, settings):
+    def __init__(self, settings, session=None):
         self.s = settings
+        self.session = session
         self._last_click = -1e9
         self.on_action = lambda: None
 
@@ -21,19 +22,27 @@ class Controller:
         pydirectinput.moveTo(x, y)
         time.sleep(random.uniform(0.10, 0.20))
         pydirectinput.mouseDown(button="left")
-        time.sleep(random.uniform(0.06, 0.12))
-        pydirectinput.mouseUp(button="left")
+        try:
+            time.sleep(random.uniform(0.06, 0.12))
+        finally:
+            pydirectinput.mouseUp(button="left")
 
     @staticmethod
     def _press(key):
         pydirectinput.FAILSAFE = False
         pydirectinput.PAUSE = 0.0
         pydirectinput.keyDown(key)
-        time.sleep(random.uniform(0.06, 0.12))
-        pydirectinput.keyUp(key)
+        try:
+            time.sleep(random.uniform(0.06, 0.12))
+        finally:
+            pydirectinput.keyUp(key)
 
     def press(self, key):
         time.sleep(random.uniform(self.s.delay_min, self.s.delay_max))
+        if self.session:
+            if self.session.perform(lambda: self._press(key)):
+                self.on_action()
+            return
         ensure_game_foreground()
         self._press(key)
         self.on_action()
@@ -47,7 +56,11 @@ class Controller:
         j = self.s.jitter_px
         tx, ty = x + random.randint(-j, j), y + random.randint(-j, j)
         time.sleep(random.uniform(self.s.delay_min, self.s.delay_max))
-        self._click(tx, ty)
+        if self.session:
+            if not self.session.perform(lambda: self._click(tx, ty), point=(tx, ty)):
+                return False
+        else:
+            self._click(tx, ty)
         self._last_click = time.monotonic()
         self.on_action()
         return True

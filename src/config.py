@@ -100,3 +100,8 @@ class Settings:
     afk_interval: float = 10.0
     afk_hold: float = 3.0
     afk_keys: tuple = ("w", "a", "s", "d")
+    background_enabled: bool = False
+    ghost_enabled: bool = False
+    space_enabled: bool = False
+    space_interval: float = 10.0
+    space_count: int = 3

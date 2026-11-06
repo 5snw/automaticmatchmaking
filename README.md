@@ -47,6 +47,19 @@ Com o executável, basta abrir `snow-emporium-matchmaking.exe`. Não é necessá
 
 Se os cliques não acontecerem, confira o idioma do jogo, desconecte o controle e aguarde cerca de um minuto depois de iniciar. Se necessário, tente executar como administrador ou recapture os botões. A aba **Guia** traz as instruções completas.
 
+### Novidades da 1.2
+
+- **Segundo plano:** captura a janela do jogo e devolve o foco ao aplicativo anterior depois de cada comando.
+- **Ghost:** deixa o jogo invisível durante a automação. Use **Mostrar o jogo por 5 segundos** para conferir.
+- **Espaço automático:** no modo A, escolha o intervalo e a quantidade de toques por vez, independentemente de WASD.
+- **Atualizações:** consulta as Releases deste repositório, manualmente ou ao abrir. A preferência fica salva no PC; o download é manual.
+- **Diagnóstico:** salva um JSON local com versões, configurações e disponibilidade dos modelos. Não inclui chave do Discord, screenshots ou histórico de atividade.
+- **DM de teste:** confira sua chave e as permissões de mensagens sem iniciar uma sessão.
+
+Segundo plano e Ghost são experimentais. Use janela ou tela cheia sem bordas, sem minimizar. Os comandos ainda alternam o foco; WASD o mantém durante o tempo de tecla pressionada. A compatibilidade precisa ser conferida no Fortnite. Se a captura falhar, a automação para e restaura a janela. Fechar o app à força pode exigir reiniciar o jogo.
+
+[Baixar a versão publicada](https://github.com/5snw/automaticmatchmaking/releases/latest)
+
 ### Discord opcional
 
 O aplicativo tem suporte a relatórios por DM e configurações remotas pelo **ss :)**. Essas funções dependem de o serviço estar ativo; a automação local funciona sem vínculo com o Discord.
@@ -59,7 +72,7 @@ O resumo inclui tempo de sessão, ações, pico APM e voltas. Defina **DM a cada
 
 Use `/settings` para ajustar modo, idioma, espera, intervalo de DM e WASD. As alterações são consultadas a cada minuto enquanto o app roda e a opção está habilitada. Iniciar e parar continuam sendo ações locais. `/unlink` revoga a chave.
 
-As opções começam desligadas. Sem chave, o programa não faz requisições ao serviço. Os relatórios não incluem screenshots ou arquivos pessoais. Para entregar as DMs, o serviço associa o ID do Discord a um hash da chave e às configurações escolhidas. A chave não é salva ao fechar o app.
+As opções começam desligadas. Sem chave, o programa não faz requisições ao serviço. Os relatórios não incluem screenshots ou arquivos pessoais. Para entregar as DMs, o serviço associa o ID do Discord a um hash da chave e às configurações escolhidas. A chave fica salva localmente, protegida pela sua conta do Windows. Use Apagar chave salva para remover a cópia local.
 
 Este repositório contém o aplicativo Windows e o cliente de integração. O código do bot, do painel e da API não faz parte dele.
 
@@ -126,6 +139,19 @@ Open `snow-emporium-matchmaking.exe` if you have the executable. Python is not r
 
 If clicks are not detected, check the game language, disconnect your controller and wait about a minute after starting. If needed, try running as administrator or capture your button images again. The **Guide** tab has the full instructions.
 
+### New in 1.2
+
+- **Background mode:** captures the game window and restores the previous app's focus after each input.
+- **Ghost:** makes the game invisible during automation. Use **Show the game for 5 seconds** to check it.
+- **Automatic Space:** in mode A, configure the interval and taps per burst independently of WASD.
+- **Updates:** checks this repository's Releases manually or at startup. The preference is saved locally; downloads are manual.
+- **Diagnostics:** saves local JSON with versions, settings and template availability. No Discord key, screenshots or activity history.
+- **Test DM:** checks your key and direct message permissions without starting a session.
+
+Background mode and Ghost are experimental. Use windowed or borderless mode without minimizing. Inputs still switch focus; WASD keeps focus for the configured hold time. Compatibility must be checked in Fortnite. A capture failure stops automation and restores the window. Force-closing the app may require restarting the game.
+
+[Download the published version](https://github.com/5snw/automaticmatchmaking/releases/latest)
+
 ### Optional Discord integration
 
 The app supports DM reports and remote settings through **ss :)**. These features require an active service. Local automation works without linking Discord.
@@ -138,7 +164,7 @@ Reports include elapsed time, actions, peak APM and rounds. Set **DM every** to 
 
 Use `/settings` to adjust mode, language, wait time, DM interval and WASD. The app checks for changes every minute while running, when remote settings are enabled. Starting and stopping stay local. `/unlink` revokes your key.
 
-Both options start disabled. Without a key, the app makes no requests to the service. Reports contain no screenshots or personal files. To deliver DMs, the service associates your Discord ID with a hash of the key and your chosen settings. The app does not save the key when it closes.
+Both options start disabled. Without a key, the app makes no requests to the service. Reports contain no screenshots or personal files. To deliver DMs, the service associates your Discord ID with a hash of the key and your chosen settings. The key is saved locally, protected by your Windows account. Use Remove saved key to delete the local copy.
 
 This repository contains the Windows app and its integration client. The bot, panel and API source code are not included.
 

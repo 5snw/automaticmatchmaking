@@ -12,7 +12,7 @@ UI = {'en': {'crop_help': 'Only use this if the app is not clicking the game but
         'dm_remote': 'Allow changes through /settings',
         'dm_every': 'DM every',
         'dm_minutes': 'min · 0 = only on stop',
-        'dm_privacy': 'Without a key, nothing is sent. The key is kept only until you close the app.',
+        'dm_privacy': 'Without a key, nothing is sent to Discord. The key is saved on this PC, protected by Windows.',
         'dm_ok': 'Discord: summary sent by DM.',
         'dm_error': 'Discord: DM failed. Check service URL, key and DM permissions.',
         'remote_error': 'Discord: could not fetch remote settings. Local controls remain available.',
@@ -77,7 +77,7 @@ UI = {'en': {'crop_help': 'Only use this if the app is not clicking the game but
         'dm_remote': 'Permitir ajustes pelo /settings',
         'dm_every': 'DM a cada',
         'dm_minutes': 'min · 0 = só ao parar',
-        'dm_privacy': 'Sem chave, nada é enviado. A chave vale só nesta abertura do app.',
+        'dm_privacy': 'Sem chave, nada é enviado ao Discord. A chave fica salva neste PC, protegida pelo Windows.',
         'dm_ok': 'Discord: resumo enviado por DM.',
         'dm_error': 'Discord: falha na DM. Confira URL, chave e permissão de mensagens diretas.',
         'remote_error': 'Discord: não foi possível consultar as configurações. Os controles locais continuam '
@@ -234,7 +234,7 @@ GUIDE = {'en': [('h1', 'Getting started'),
         ('h2', 'Data and privacy'),
         ('p',
          'Without a key, the app makes no requests to the service. Both Discord options start disabled. The '
-         'key is not saved when you close the app. Reports contain metrics, a reason and a delivery ID; no '
+         'key is saved locally, encrypted for your Windows account. Reports contain metrics, a reason and a delivery ID; no '
          'screenshots or personal files. The service stores your Discord ID, a key hash and the settings '
          'needed for the link. An in-flight request may finish after you disable an option.'),
         ('h1', 'Contact'),
@@ -348,12 +348,136 @@ GUIDE = {'en': [('h1', 'Getting started'),
         ('h2', 'Dados e privacidade'),
         ('p',
          'Sem chave, o aplicativo não faz requisições ao serviço. As duas opções de Discord começam '
-         'desligadas. A chave não é salva ao fechar o programa. Relatórios contêm métricas, motivo e '
+         'desligadas. A chave fica salva localmente, criptografada para sua conta do Windows. Relatórios contêm métricas, motivo e '
          'identificador de entrega; não contêm screenshots nem arquivos pessoais. O serviço guarda seu ID do '
          'Discord, um hash da chave e as configurações necessárias ao vínculo. Uma requisição já iniciada '
          'pode terminar depois de você desligar uma opção.'),
         ('h1', 'Contato'),
         ('p', 'Discord: 5snw | https://discord.gg/446EYkTUJh')]}
+
+UI['pt'].update({
+    'capture_retry': 'Captura temporariamente indisponível ({count}/3). Aguardando nova imagem; comandos pausados.',
+    'capture_recovered': 'Captura recuperada. Automação retomada.',
+    'capture_stopped': 'Não foi possível recuperar a captura. Automação parada e janela restaurada. Teste sem Ghost para comparar.',
+    'space_check': 'Apertar espaço durante a partida (modo A)',
+    'space_every': 'A cada', 'space_times': 's · vezes:',
+    'section_window': 'JANELA DO JOGO',
+    'background_check': 'Modo em segundo plano',
+    'ghost_check': 'Ghost: deixar o jogo invisível',
+    'peek_game': 'Mostrar o jogo por 5 segundos',
+    'background_hint': 'Use janela ou tela cheia sem bordas. Não minimize o jogo. Os comandos alternam o foco por alguns instantes; WASD mantém o foco durante o tempo configurado. Ghost depende da captura em segundo plano.',
+    'section_app': 'APLICATIVO',
+    'check_updates': 'Verificar atualizações',
+    'check_startup': 'Verificar ao abrir',
+    'update_available': 'A versão {version} está disponível. Abrir a página para baixar?',
+    'update_current': 'Você já está usando a versão mais recente publicada.',
+    'update_none': 'Ainda não há uma Release estável publicada no GitHub.',
+    'update_error': 'Não foi possível consultar o GitHub. Confira a conexão e tente novamente mais tarde.',
+    'preference_error': 'Não foi possível salvar a preferência de atualização.',
+    'diagnostic_report': 'Criar relatório de diagnóstico',
+    'diagnostic_hint': 'Salva um arquivo local com versões, configurações e estado dos modelos. Sem screenshots, chave do Discord ou envio automático.',
+    'diagnostic_saved': 'Relatório salvo. Nada foi enviado automaticamente.',
+    'diagnostic_error': 'Não foi possível salvar o relatório nesse local.',
+    'test_dm': 'Enviar DM de teste',
+    'dm_need_key': 'Entre no servidor, use /link e cole sua chave antes de testar.',
+    'dm_test_sending': 'Discord: enviando DM de teste...',
+    'dm_test_ok': 'Discord: DM de teste enviada. Confira suas mensagens diretas.',
+    'dm_test_cancelled': 'Discord: teste cancelado porque a chave ou o serviço mudou.',
+})
+UI['en'].update({
+    'capture_retry': 'Capture temporarily unavailable ({count}/3). Waiting for a fresh frame; inputs paused.',
+    'capture_recovered': 'Capture recovered. Automation resumed.',
+    'capture_stopped': 'Could not recover capture. Automation stopped and window restored. Try without Ghost to compare.',
+    'space_check': 'Press Space during the match (mode A)',
+    'space_every': 'Every', 'space_times': 's · times:',
+    'section_window': 'GAME WINDOW',
+    'background_check': 'Background mode',
+    'ghost_check': 'Ghost: make the game invisible',
+    'peek_game': 'Show the game for 5 seconds',
+    'background_hint': 'Use windowed or borderless mode. Do not minimize the game. Inputs briefly switch focus; WASD keeps focus for the configured hold time. Ghost requires background capture.',
+    'section_app': 'APPLICATION',
+    'check_updates': 'Check for updates',
+    'check_startup': 'Check at startup',
+    'update_available': 'Version {version} is available. Open the download page?',
+    'update_current': 'You are already running the latest published version.',
+    'update_none': 'There is no stable GitHub Release published yet.',
+    'update_error': 'Could not reach GitHub. Check your connection and try again later.',
+    'preference_error': 'Could not save the update preference.',
+    'diagnostic_report': 'Create diagnostic report',
+    'diagnostic_hint': 'Saves a local file with versions, settings and template availability. No screenshots, Discord key or automatic upload.',
+    'diagnostic_saved': 'Report saved. Nothing was uploaded automatically.',
+    'diagnostic_error': 'Could not save the report in that location.',
+    'test_dm': 'Send test DM',
+    'dm_need_key': 'Join the server, use /link and paste your key before testing.',
+    'dm_test_sending': 'Discord: sending test DM...',
+    'dm_test_ok': 'Discord: test DM sent. Check your direct messages.',
+    'dm_test_cancelled': 'Discord: test cancelled because the key or service changed.',
+})
+
+GUIDE['pt'][-2:-2] = [
+    ('h1', 'Segundo plano e Ghost'),
+    ('p', 'Use o Fortnite em janela ou tela cheia sem bordas e deixe a janela aberta, sem minimizar. Segundo plano tenta capturar só o jogo, mesmo atrás de outras janelas. Os cliques e teclas ainda precisam alternar o foco; evite usar mouse e teclado ao mesmo tempo.'),
+    ('p', 'Ghost deixa a janela invisível enquanto a automação roda. Mostrar o jogo por 5 segundos permite conferir a partida. Ao parar, fechar normalmente ou detectar falha de captura, o aplicativo restaura a janela. Em caso de encerramento forçado do aplicativo, pode ser necessário fechar e abrir o jogo.'),
+    ('p', 'A captura depende do Windows, do modo de tela e do renderizador do jogo. Se a captura falhar, os comandos ficam pausados enquanto o app tenta recuperar a imagem. Após três falhas seguidas, ele para e restaura a janela. Nesse caso, desative segundo plano e Ghost para comparar com o modo normal.'),
+    ('h2', 'Espaço durante a partida'),
+    ('p', 'No modo A, ative Apertar espaço durante a partida e escolha o intervalo em segundos e o número de toques por vez. Funciona independentemente de WASD. No modo B, ambos ficam inativos. Os toques de espaço e WASD não entram no contador de ações dos relatórios.'),
+    ('h1', 'Atualizações e diagnóstico'),
+    ('p', 'Verificar atualizações consulta a última Release estável em github.com/5snw/automaticmatchmaking. Use tags como v1.1 ou v1.2.0. Verificar ao abrir salva sua preferência neste PC. Se houver novidade, você pode abrir a página e baixar a versão manualmente; o aplicativo não substitui o executável sozinho.'),
+    ('p', 'Criar relatório de diagnóstico salva um JSON no local escolhido. Ele inclui versões, opções da automação e disponibilidade das imagens, sem screenshots, chave do Discord, nomes de janelas ou histórico de atividade. Nada é enviado automaticamente.'),
+    ('p', 'Enviar DM de teste usa sua chave e envia uma mensagem de teste mesmo com os resumos automáticos desligados. Aguarde a confirmação na atividade e confira suas DMs. O servidor pode limitar testes repetidos; aguarde antes de tentar novamente.'),
+]
+GUIDE['en'][-2:-2] = [
+    ('h1', 'Background mode and Ghost'),
+    ('p', 'Use Fortnite in windowed or borderless mode and keep its window open, not minimized. Background mode attempts to capture only the game, even behind other windows. Clicks and keys still switch focus; avoid simultaneous mouse and keyboard use.'),
+    ('p', 'Ghost makes the window invisible while automation runs. Show the game for 5 seconds lets you check the match. Stopping, closing normally or a capture failure restores the window. If the app is force-terminated, you may need to restart the game.'),
+    ('p', 'Capture depends on Windows, display mode and the game renderer. If capture fails, inputs pause while the app retries. After three consecutive failures, it stops and restores the window. Disable background mode and Ghost to compare with normal mode.'),
+    ('h2', 'Space during the match'),
+    ('p', 'In mode A, enable Press Space during the match and choose the interval in seconds and taps per burst. It works independently of WASD. Both are inactive in mode B. Space and WASD inputs are excluded from report action counts.'),
+    ('h1', 'Updates and diagnostics'),
+    ('p', 'Check for updates queries the latest stable Release at github.com/5snw/automaticmatchmaking. Use tags such as v1.1 or v1.2.0. Check at startup saves your preference on this PC. When an update is available, you can open its page and download it manually; the app never replaces its executable automatically.'),
+    ('p', 'Create diagnostic report saves JSON in a location you choose. It includes versions, automation settings and image availability, without screenshots, your Discord key, window titles or activity history. Nothing is uploaded automatically.'),
+    ('p', 'Send test DM uses your key to send a test message even when automatic summaries are disabled. Wait for confirmation in the activity log and check your DMs. The server can rate-limit repeated tests; wait before retrying.'),
+]
+
+UI['pt'].update({
+    'forget_link': 'Apagar chave salva',
+    'link_load_error': 'Não foi possível abrir a chave salva. Cole novamente a chave do /link.',
+    'link_save_error': 'Não foi possível salvar a chave neste PC. Ela continua disponível nesta sessão.',
+    'dm_invalid_key': 'Chave inválida ou revogada. Use /link no servidor e cole a chave completa que começa com sem_. Ao gerar outra chave, a anterior deixa de funcionar.',
+    'dm_rate_limit': 'Aguarde pelo menos 10 segundos antes de tentar enviar outra DM.',
+    'dm_closed': 'O Discord não permitiu enviar a DM. Habilite mensagens diretas para o servidor e confira se o ss :) não está bloqueado.',
+    'dm_bot_auth': 'O serviço não conseguiu autenticar o bot. Avise o administrador para conferir o token do ss :).',
+    'dm_service_blocked': 'O serviço bloqueou a conexão do aplicativo. Confira se está usando a build atual e tente novamente.',
+    'dm_network_error': 'Não foi possível conectar ao serviço. Confira sua internet e tente novamente.',
+    'dm_invalid_service': 'URL do serviço inválida. Use o endereço HTTPS do serviço, não o convite do Discord.',
+})
+UI['en'].update({
+    'forget_link': 'Remove saved key',
+    'link_load_error': 'Could not open the saved key. Paste your /link key again.',
+    'link_save_error': 'Could not save the key on this PC. It remains available in this session.',
+    'dm_invalid_key': 'Invalid or revoked key. Use /link in the server and paste the full key starting with sem_. Generating a new key revokes the previous one.',
+    'dm_rate_limit': 'Wait at least 10 seconds before sending another DM.',
+    'dm_closed': 'Discord did not allow the DM. Enable direct messages for the server and check that ss :) is not blocked.',
+    'dm_bot_auth': 'The service could not authenticate the bot. Ask the administrator to check the ss :) token.',
+    'dm_service_blocked': 'The service blocked the app connection. Check that you are using the current build and try again.',
+    'dm_network_error': 'Could not connect to the service. Check your internet connection and try again.',
+    'dm_invalid_service': 'Invalid service URL. Use the HTTPS service address, not the Discord invite.',
+})
+
+GUIDE['pt'][6:6] = [('p', 'Antes de iniciar, desconecte qualquer controle conectado ao PC, por USB ou Bluetooth.')]
+GUIDE['en'][6:6] = [('p', 'Before starting, disconnect any controller connected to your PC, via USB or Bluetooth.')]
+GUIDE['pt'][-2:-2] = [
+    ('h2', 'Como o bot sabe para quem enviar'),
+    ('p', 'Ao usar /link, o Discord informa ao ss :) o ID da sua conta. O serviço associa esse ID à chave gerada. Cole essa chave no app: não é preciso informar seu nome ou ID manualmente. Cada nova chave revoga a anterior.'),
+    ('p', 'Enviar DM de teste é um botão: clique nele para enviar uma mensagem na hora. A caixa Enviar resumo por DM ao parar ou sair só envia o resumo depois de uma sessão. O resultado do teste aparece em uma janela, com o motivo da falha quando disponível.'),
+    ('p', 'A chave é salva automaticamente neste PC, protegida pela sua conta do Windows, e reaparece ao abrir o app. Apagar chave salva remove a cópia local; /unlink no Discord revoga o vínculo no servidor. Não use o token do bot nesse campo.'),
+]
+GUIDE['en'][-2:-2] = [
+    ('h2', 'How the bot knows who to message'),
+    ('p', 'When you use /link, Discord gives ss :) your account ID. The service associates that ID with the generated key. Paste that key into the app: you do not need to enter your username or ID manually. Each new key revokes the previous one.'),
+    ('p', 'Send test DM is a button: click it to send a message now. The Send a DM summary on stop or exit checkbox only sends a summary after a session. The test result appears in a dialog, including the failure reason when available.'),
+    ('p', 'The key is saved automatically on this PC, protected by your Windows account, and restored when the app opens. Remove saved key deletes the local copy; /unlink on Discord revokes the server link. Do not enter the bot token in this field.'),
+]
 
 def norm(lang):
     return lang if lang in UI else DEFAULT_LANG

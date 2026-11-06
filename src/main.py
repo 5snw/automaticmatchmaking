@@ -6,7 +6,7 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 import keyboard
 from PIL import Image, ImageTk
@@ -24,6 +24,10 @@ _enable_dpi_awareness()
 
 import config
 import i18n
+import updates
+import diagnostics
+import link_store
+from game_window import GameSession, WindowUnavailable, CaptureRetry
 from ui_theme import COLORS, apply_theme
 from discord_sync import DiscordSync, SessionStats
 from anti_afk import AntiAfk
@@ -52,6 +56,12 @@ class Worker(threading.Thread):
         self.stats = SessionStats()
         self.on_finished = lambda stats, reason: None
         self.stop_reason = 'stop'
+        self.session = None
+        self.afk_thread = None
+
+    def peek(self):
+        if self.session:
+            self.session.peek()
 
     def _load_templates(self, lang):
         templates = load_templates(lang)
@@ -66,23 +76,34 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log_q.put(f'error: {e}')
         finally:
+            self.stop_event.set()
+            if self.afk_thread:
+                self.afk_thread.join()
+            if self.session:
+                try:
+                    self.session.close()
+                except Exception as e:
+                    self.log_q.put(f'window restore error: {e}')
             self.on_finished(self.stats, self.stop_reason)
 
     def _run(self):
         lang = self.s.lang
         templates = self._load_templates(lang)
 
-        ctrl = Controller(self.s)
+        self.session = GameSession(self.s, self.stop_event)
+        ctrl = Controller(self.s, self.session)
         ctrl.on_action = self.stats.action
         machines = {"A": StateMachine(self.s, templates, ctrl), "B": ModeB(self.s, templates, ctrl)}
         mode = self.s.mode if self.s.mode in machines else "A"
         sm = machines[mode]
         sm.start()
 
-        afk = AntiAfk(self.s, active=lambda: sm.state is State.IN_MATCH)
+        afk = AntiAfk(self.s, active=lambda: mode == 'A' and sm.state is State.IN_MATCH, session=self.session)
         afk_thread = threading.Thread(target=afk.run, args=(self.stop_event, self.log_q.put), daemon=True)
+        self.afk_thread = afk_thread
         afk_thread.start()
         last_note, last_score = "", -1.0
+        capture_failures = 0
         while not self.stop_event.is_set():
             try:
                 if self.s.lang != lang:
@@ -95,16 +116,33 @@ class Worker(threading.Thread):
                     mode = self.s.mode
                     sm = machines[mode]
                     sm.start()
-                frame, ox, oy = capture_screen(self.s.monitor_index)
+                frame, ox, oy = self.session.capture(capture_screen)
+                if capture_failures:
+                    self.log_q.put(i18n.t(self.s.lang, 'capture_recovered'))
+                capture_failures = 0
                 r = sm.step(frame, ox, oy)
                 self.status.update(state=r.state.value, score=r.score, loops=sm.loops)
                 self.stats.rounds = sum(m.loops for m in machines.values())
                 if r.note != last_note or r.clicked or abs(r.score - last_score) > 0.1:
                     self.log_q.put(f"[{r.state.value}] {r.note} ({r.score:.2f}/{self.s.threshold:.2f})")
                     last_note, last_score = r.note, r.score
+            except CaptureRetry as e:
+                capture_failures += 1
+                self.log_q.put(i18n.t(self.s.lang, 'capture_retry', count=capture_failures))
+                if capture_failures >= 3:
+                    self.log_q.put(i18n.t(self.s.lang, 'capture_stopped'))
+                    break
+                if self.stop_event.wait(1):
+                    break
+                continue
+            except WindowUnavailable as e:
+                if not self.stop_event.is_set():
+                    self.log_q.put(str(e))
+                break
             except Exception as e:
                 self.log_q.put(f"error: {e}")
             self.stop_event.wait(self.s.poll_interval)
+        self.stop_event.set()
         afk_thread.join(timeout=2)
         self.status.update(state=State.IDLE.value, score=0.0)
 
@@ -157,7 +195,7 @@ class SnipOverlay:
         self.on_done(path, error)
 
 class App:
-    def __init__(self):
+    def __init__(self, check_startup=True, load_link=True):
         self.s = Settings()
         self.log_q = queue.Queue()
         self.status = {"state": State.IDLE.value, "score": 0.0, "loops": 0}
@@ -166,6 +204,11 @@ class App:
         self.discord_events = queue.Queue()
         self.discord = DiscordSync(self.discord_events)
         self.closing = False
+        self.app_events = queue.Queue()
+        self.update_busy = False
+        self.load_saved_link = load_link
+        self.link_save_job = None
+        self.last_saved_link = None
 
         self.root = tk.Tk()
         self.root.title(f"{TITLE} — BETA")
@@ -185,7 +228,7 @@ class App:
         ttk.Label(brand, text='Matchmaking', style='Brand.TLabel').pack(anchor='w', pady=(2, 0))
         meta = ttk.Frame(header, style='Page.TFrame')
         meta.pack(side='right')
-        ttk.Label(meta, text='1.1  /  BETA', style='Badge.TLabel').pack(anchor='e')
+        ttk.Label(meta, text=f'{updates.VERSION}  /  BETA', style='Badge.TLabel').pack(anchor='e')
         ttk.Label(meta, text='Discord: 5snw', style='Page.TLabel').pack(anchor='e', pady=(8, 0))
 
         self.nb = ttk.Notebook(r)
@@ -200,10 +243,13 @@ class App:
         footer.pack(anchor='w', padx=26, pady=(10, 14))
 
         self._apply_lang()
+        self._log(f'Snow Emporium Matchmaking {updates.VERSION} | {updates.BUILD}')
         self.discord.start()
         self._start_hotkey()
         self.root.after(200, self._tick)
         self.root.protocol("WM_DELETE_WINDOW", self._quit)
+        if check_startup and self.auto_update_var.get():
+            self.root.after(1200, lambda: self.check_updates(manual=False))
 
     def _l(self, widget, key):
         self._tr.append((widget, key))
@@ -316,6 +362,30 @@ class App:
         self.top_var = tk.BooleanVar(value=False)
         self._l(ttk.Checkbutton(movement, variable=self.top_var, command=lambda: self.root.attributes('-topmost', self.top_var.get())), 'topmost').pack(anchor='w')
 
+        self.space_var = tk.BooleanVar(value=self.s.space_enabled)
+        self._l(ttk.Checkbutton(movement, variable=self.space_var, command=lambda: setattr(self.s, 'space_enabled', self.space_var.get())), 'space_check').pack(anchor='w')
+        space_row = ttk.Frame(movement)
+        space_row.pack(fill='x', pady=(4, 8))
+        self.space_interval_var = tk.StringVar(value=str(self.s.space_interval))
+        self.space_count_var = tk.StringVar(value=str(self.s.space_count))
+        self._l(ttk.Label(space_row), 'space_every').pack(side='left')
+        ttk.Spinbox(space_row, from_=1, to=600, width=5, textvariable=self.space_interval_var).pack(side='left', padx=5)
+        self._l(ttk.Label(space_row), 'space_times').pack(side='left')
+        ttk.Spinbox(space_row, from_=1, to=20, width=4, textvariable=self.space_count_var).pack(side='left', padx=5)
+        self.space_interval_var.trace_add('write', lambda *_: self._on_afk_num('space_interval', self.space_interval_var, 1, 600))
+        self.space_count_var.trace_add('write', lambda *_: self._on_afk_num('space_count', self.space_count_var, 1, 20))
+
+        window_card = self._card(left, 'section_window')
+        self.background_var = tk.BooleanVar(value=False)
+        self.ghost_var = tk.BooleanVar(value=False)
+        self._l(ttk.Checkbutton(window_card, variable=self.background_var, command=self._window_options), 'background_check').pack(anchor='w')
+        self.ghost_check = self._l(ttk.Checkbutton(window_card, variable=self.ghost_var, command=self._window_options), 'ghost_check')
+        self.ghost_check.pack(anchor='w')
+        self.peek_button = self._l(ttk.Button(window_card, command=self._peek_game), 'peek_game')
+        self.peek_button.pack(anchor='w', pady=(6, 8))
+        self._wrapped(window_card, 'background_hint')
+        self._window_options()
+
         recognition = self._card(left, 'section_recognition')
         self._wrapped(recognition, 'recognition_hint')
         th_row = ttk.Frame(recognition)
@@ -333,6 +403,13 @@ class App:
         ttk.Button(cap, text='?', width=2, command=self._show_crop_help).pack(side='left', padx=(4, 0))
 
         self._build_discord(right)
+        maintenance = self._card(right, 'section_app')
+        self.update_button = self._l(ttk.Button(maintenance, command=self.check_updates), 'check_updates')
+        self.update_button.pack(fill='x')
+        self.auto_update_var = tk.BooleanVar(value=updates.load_auto_check())
+        self._l(ttk.Checkbutton(maintenance, variable=self.auto_update_var, command=self._save_update_preference), 'check_startup').pack(anchor='w', pady=5)
+        self._l(ttk.Button(maintenance, command=self._diagnostic_report), 'diagnostic_report').pack(fill='x', pady=(3, 6))
+        self._wrapped(maintenance, 'diagnostic_hint')
         activity = self._card(right, 'section_activity')
         self._wrapped(activity, 'activity_hint')
         self.log = tk.Text(activity, height=7, width=1, state='disabled', font=('Consolas', 9), background=COLORS['input'], foreground=COLORS['muted'], selectbackground=COLORS['line'], relief='flat', padx=10, pady=10, wrap='word', borderwidth=0)
@@ -355,14 +432,26 @@ class App:
                 default_url = json.load(f).get('url', default_url)
         except (OSError, ValueError, AttributeError):
             pass
+        saved_link = None
+        if self.load_saved_link:
+            try:
+                saved_link = link_store.load_link()
+            except (OSError, ValueError, KeyError, TypeError):
+                self.log_q.put(i18n.t(self.s.lang, 'link_load_error'))
+        if saved_link:
+            default_url = saved_link['url']
+            self.last_saved_link = (saved_link['key'], default_url)
         self.service_var = tk.StringVar(value=default_url)
-        self.key_var = tk.StringVar()
+        self.key_var = tk.StringVar(value=saved_link['key'] if saved_link else '')
         self.dm_var = tk.BooleanVar(value=False)
         self.remote_var = tk.BooleanVar(value=False)
         self.dm_every_var = tk.StringVar(value='0')
         self._l(ttk.Label(box, style='Muted.TLabel'), 'link_key').pack(anchor='w', pady=(0, 5))
         self.key_entry = ttk.Entry(box, textvariable=self.key_var, show='*')
         self.key_entry.pack(fill='x', pady=(0, 10))
+        self.test_dm_button = self._l(ttk.Button(box, command=self._test_dm), 'test_dm')
+        self.test_dm_button.pack(fill='x', pady=(0, 5))
+        self._l(ttk.Button(box, command=lambda: self.key_var.set('')), 'forget_link').pack(anchor='w', pady=(0, 8))
         self._l(ttk.Checkbutton(box, variable=self.dm_var, command=self._configure_discord), 'dm_send').pack(anchor='w')
         self._l(ttk.Checkbutton(box, variable=self.remote_var, command=self._configure_discord), 'dm_remote').pack(anchor='w')
         row = ttk.Frame(box)
@@ -377,6 +466,8 @@ class App:
         ttk.Entry(self.service_options, textvariable=self.service_var).pack(fill='x')
         for var in (self.service_var, self.key_var, self.dm_every_var):
             var.trace_add('write', lambda *_: self._configure_discord())
+        for var in (self.service_var, self.key_var):
+            var.trace_add('write', lambda *_: self._schedule_link_save())
         self._configure_discord()
 
     def _toggle_service_options(self):
@@ -390,11 +481,91 @@ class App:
             every = int(self.dm_every_var.get())
         except ValueError:
             every = 0
-        self.discord.configure(url=self.service_var.get().strip(), key=self.key_var.get().strip(),
+        self.discord.configure(url=self.service_var.get().strip(), key=link_store.normalize_key(self.key_var.get()),
                                send=self.dm_var.get(), remote=self.remote_var.get(), every=max(0, min(1440, every)))
 
+    def _test_dm(self):
+        self._configure_discord()
+        key = link_store.normalize_key(self.key_var.get())
+        if not key:
+            messagebox.showinfo(i18n.t(self.s.lang, 'test_dm'), i18n.t(self.s.lang, 'dm_need_key'), parent=self.root)
+        elif not link_store.valid_key(key):
+            messagebox.showerror(i18n.t(self.s.lang, 'test_dm'), i18n.t(self.s.lang, 'dm_invalid_key'), parent=self.root)
+        elif self.discord.test_dm():
+            self.test_dm_button.configure(state='disabled')
+            self._save_link()
+            self._log(i18n.t(self.s.lang, 'dm_test_sending'))
+
+    def _schedule_link_save(self):
+        if self.link_save_job:
+            self.root.after_cancel(self.link_save_job)
+        self.link_save_job = self.root.after(500, self._save_link)
+
+    def _save_link(self):
+        if self.link_save_job:
+            self.root.after_cancel(self.link_save_job)
+            self.link_save_job = None
+        if not self.load_saved_link:
+            return
+        key, url = link_store.normalize_key(self.key_var.get()), self.service_var.get().strip()
+        if key and not link_store.valid_key(key):
+            return
+        if self.last_saved_link == (key, url):
+            return
+        try:
+            link_store.save_link(key, url)
+            self.last_saved_link = (key, url)
+        except (OSError, ValueError):
+            self.log_q.put(i18n.t(self.s.lang, 'link_save_error'))
+
+    def _window_options(self):
+        self.s.background_enabled = self.background_var.get()
+        if not self.s.background_enabled:
+            self.ghost_var.set(False)
+        self.s.ghost_enabled = self.ghost_var.get()
+        self.ghost_check.configure(state='normal' if self.s.background_enabled else 'disabled')
+        self.peek_button.configure(state='normal' if self.s.ghost_enabled else 'disabled')
+
+    def _peek_game(self):
+        if self._running():
+            self.worker.peek()
+
+    def _save_update_preference(self):
+        try:
+            updates.save_auto_check(self.auto_update_var.get())
+        except OSError:
+            self._log(i18n.t(self.s.lang, 'preference_error'))
+
+    def check_updates(self, manual=True):
+        if self.update_busy or self.closing:
+            return
+        self.update_busy = True
+        self.update_button.configure(state='disabled')
+        def run():
+            try:
+                key, release = updates.check()
+            except Exception:
+                key, release = 'update_error', None
+            self.app_events.put(('update', manual, key, release))
+        threading.Thread(target=run, daemon=True).start()
+
+    def _diagnostic_report(self):
+        import json
+        path = filedialog.asksaveasfilename(parent=self.root, title=i18n.t(self.s.lang, 'diagnostic_report'),
+            defaultextension='.json', initialfile=f'snow-emporium-diagnostic-{time.strftime("%Y%m%d-%H%M%S")}.json',
+            filetypes=[('JSON', '*.json')])
+        if not path:
+            return
+        try:
+            data = diagnostics.collect(self.s, self.status, self.dm_var.get())
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            messagebox.showinfo(i18n.t(self.s.lang, 'diagnostic_report'), i18n.t(self.s.lang, 'diagnostic_saved'), parent=self.root)
+        except Exception:
+            messagebox.showerror(i18n.t(self.s.lang, 'diagnostic_report'), i18n.t(self.s.lang, 'diagnostic_error'), parent=self.root)
+
     def _remote_settings(self, key, values):
-        if not self.remote_var.get() or key != self.key_var.get().strip() or not self._running():
+        if not self.remote_var.get() or key != link_store.normalize_key(self.key_var.get()) or not self._running():
             return
         for attr, value in values.items():
             if attr == 'dm_every':
@@ -534,6 +705,21 @@ class App:
         self.log.config(state="disabled")
 
     def _tick(self):
+        while not self.closing:
+            try:
+                _, manual, key, release = self.app_events.get_nowait()
+            except queue.Empty:
+                break
+            self.update_busy = False
+            self.update_button.configure(state='normal')
+            if release:
+                tag, url = release
+                if messagebox.askyesno(i18n.t(self.s.lang, 'check_updates'), i18n.t(self.s.lang, key, version=tag), parent=self.root):
+                    webbrowser.open(url)
+            elif manual:
+                messagebox.showinfo(i18n.t(self.s.lang, 'check_updates'), i18n.t(self.s.lang, key), parent=self.root)
+            else:
+                self._log(i18n.t(self.s.lang, key))
         while True:
             try:
                 event = self.discord_events.get_nowait()
@@ -541,6 +727,13 @@ class App:
                 break
             if event[0] == 'remote':
                 self._remote_settings(event[1], event[2])
+            elif event[0] == 'discord_test':
+                self.test_dm_button.configure(state='normal')
+                text = i18n.t(self.s.lang, event[1])
+                self._log(text)
+                if not self.closing:
+                    show = messagebox.showinfo if event[1] == 'dm_test_ok' else messagebox.showerror
+                    show(i18n.t(self.s.lang, 'test_dm'), text, parent=self.root)
             else:
                 self._log(i18n.t(self.s.lang, event[1]))
         while True:
@@ -558,6 +751,7 @@ class App:
         if self.closing:
             return
         self.closing = True
+        self._save_link()
         self._configure_discord()
         if self.worker:
             self.worker.stop_reason = 'exit'
@@ -583,8 +777,10 @@ class App:
 def ui_selftest(out_path):
     """Exercise the bundled UI without game input, capture, hotkeys or network."""
     App._start_hotkey = lambda self: None
-    app = App()
+    app = App(check_startup=False, load_link=False)
     app.root.withdraw()
+    callback_errors = []
+    app.root.report_callback_exception = lambda *args: callback_errors.append(str(args))
     lines = []
     for lang in ('pt', 'en'):
         app.s.lang = lang
@@ -592,7 +788,10 @@ def ui_selftest(out_path):
         app.root.update_idletasks()
         assert app.btn.cget('text') == i18n.t(lang, 'start')
         assert not app.key_var.get() and not app.dm_var.get() and not app.remote_var.get()
+        assert app.update_button.cget('text') == i18n.t(lang, 'check_updates')
+        assert not app.s.background_enabled and not app.s.ghost_enabled and not app.s.space_enabled
         lines.append(f'UI {lang}: ok')
+    assert not callback_errors, callback_errors
     assert app.service_var.get().startswith('https://')
     app.discord.shutdown()
     app.discord.join(timeout=2)

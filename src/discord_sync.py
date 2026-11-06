@@ -9,6 +9,29 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from updates import VERSION
+
+
+def error_key(error):
+    if isinstance(error, urllib.error.HTTPError):
+        if error.code == 401:
+            return 'dm_invalid_key'
+        if error.code == 429:
+            return 'dm_rate_limit'
+        if error.code == 403:
+            return 'dm_service_blocked'
+        if error.code == 502:
+            try:
+                code = json.loads(error.read(8192)).get('code')
+            except (ValueError, OSError):
+                code = None
+            return {'dm_closed': 'dm_closed', 'bot_auth': 'dm_bot_auth',
+                    'discord_rate_limit': 'dm_rate_limit'}.get(code, 'dm_error')
+    if isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError)):
+        return 'dm_network_error'
+    if isinstance(error, ValueError):
+        return 'dm_invalid_service'
+    return 'dm_error'
 
 
 def service_url(value):
@@ -79,6 +102,16 @@ class DiscordSync(threading.Thread):
         self.closed = threading.Event()
         self.last_poll = self.last_report = 0
         self.revision = None
+        self.test_pending = False
+
+    def test_dm(self):
+        with self.lock:
+            if self.test_pending or not self.options['key']:
+                return False
+            options = dict(self.options)
+            self.test_pending = True
+        self.jobs.put((options, SessionStats().snapshot('test')))
+        return True
 
     def configure(self, **options):
         with self.lock:
@@ -105,7 +138,8 @@ class DiscordSync(threading.Thread):
     def _request(options, path, payload=None):
         url = service_url(options['url'])
         request = urllib.request.Request(url + path, data=json.dumps(payload).encode() if payload is not None else None,
-                                         headers={'Authorization': 'Bearer ' + options['key'], 'Content-Type': 'application/json'})
+                                         headers={'Authorization': 'Bearer ' + options['key'], 'Content-Type': 'application/json',
+                                                  'Accept': 'application/json', 'User-Agent': f'Snow-Emporium-Matchmaking/{VERSION}'})
         # Do not follow redirects: the link key must never leak to another origin.
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -116,6 +150,20 @@ class DiscordSync(threading.Thread):
     def _send(self, options, report):
         with self.lock:
             current = dict(self.options)
+        is_test = report['reason'] == 'test'
+        if is_test:
+            try:
+                if options['key'] == current['key'] and options['url'] == current['url']:
+                    self.transport(options, '/api/reports', report)
+                    self.events.put(('discord_test', 'dm_test_ok'))
+                else:
+                    self.events.put(('discord_test', 'dm_test_cancelled'))
+            except Exception as error:
+                self.events.put(('discord_test', error_key(error)))
+            finally:
+                with self.lock:
+                    self.test_pending = False
+            return
         if not options['key'] or not current['send'] or options['key'] != current['key'] or options['url'] != current['url']:
             return
         try:
@@ -130,8 +178,8 @@ class DiscordSync(threading.Thread):
                         return
                 self.transport(options, '/api/reports', report)
             self.events.put(('discord_log', 'dm_ok'))
-        except Exception:
-            self.events.put(('discord_log', 'dm_error'))
+        except Exception as error:
+            self.events.put(('discord_log', error_key(error)))
 
     def run(self):
         try:
